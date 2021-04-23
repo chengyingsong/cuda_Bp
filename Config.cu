@@ -5,7 +5,7 @@ using namespace std;
 
 vector<int> layers = { 784,512,10 };
 int layer_count = layers.size();
-double eta = 0.0001;          //学习率
+double eta = 0.001;          //学习率
 int batch_size = 500;
 int epoch_size = 10;
 int train_len = 6000;

@@ -2,6 +2,7 @@
 #include <vector>
 #include <random>
 #include <cmath>
+#include<time.h>
 #include <algorithm>
 #include <assert.h>
 #include "load_data.cuh"
@@ -31,9 +32,9 @@ Matrix Y_test;
 
 double test() {
     double acc = 0;
+    Matrix sample_x(1, layers[0],NULL);
     for (int k = 0; k < X_test.shape0; k++)
     {
-        Matrix sample_x(1, layers[0],NULL);
         sample_x.assign(X_test.data+k*layers[0],layers[0]);
         int predict_y = forward(sample_x)[layer_count - 1].argmax(0)[0];
         cudaDeviceSynchronize();
@@ -58,51 +59,75 @@ void train() {
     {
         printf("Running Epoch %d\n", i);
         //shuffle等
-        random_shuffle(index.begin(), index.end());
+        //random_shuffle(index.begin(), index.end());
+        
         double best_acc = 0;
+
+        Matrix sample_x(1, layers[0],NULL); //托管内存
         for (int j = 0; j < batch_number; j++)
         {
             printf("Running batch number %d in epoch %d\n", j, i);
+            cudaDeviceSynchronize();
             double batch_acc = 0;
-            int shuffle_index;
+            //int shuffle_index;
+            //clock_t start_time, end_time;
+            //start_time = clock();
             for (int k = 0; k < batch_size; k++)
             {
                 //随机抽取样本训练
-                printf("k:%d\n",k);
-                printf("%d %d\n", j * batch_size + k,index[j * batch_size + k]);
-                //int shuffle_index = index[j * batch_size + k];
-                shuffle_index = j * batch_size + k;
-                printf("1");
-                Matrix sample_x(1, layers[0],NULL); //托管内存
-                printf("2");
+                //printf("%d %d\n", j * batch_size + k,index[j * batch_size + k]);
+                int shuffle_index = index[j * batch_size + k];
+                //shuffle_index = j * batch_size + k;
+                //printf("1");
+
+               
+                //printf("2");
+
                 sample_x.assign(X_train.data+shuffle_index*layers[0],layers[0]);
-                printf("3");
+                //printf("3\n");
+
                 double sample_y = Y_train.data[shuffle_index];
-                printf("pre forward!\n");
-                vector<Matrix> Predict_y = forward(sample_x);
+               // printf("pre forward!\n");
                 cudaDeviceSynchronize();
-                cudaFree(sample_x.data);//释放这个批次的内存
-                printf("output\n");
-                double y = Predict_y[layer_count - 1].argmax(0)[0];
-                Predict_y[2].print();
+                vector<Matrix> Predict_y = forward(sample_x);  //GPU加速
+                cudaDeviceSynchronize();
+
+                //cudaFree(sample_x.data);//释放这个批次的内存
+               // printf("output\n");
+                
+                double y = Predict_y[layer_count - 1].argmax(0)[0];  //CPU计算
+                //Predict_y[2].print();
+                cudaDeviceSynchronize();
                 if (y == sample_y)
                     batch_acc++;
-                printf("pred:%.0lf,real:%.0lf\n", y, sample_y);
-                backprop(Predict_y, sample_y);
+                //printf("pred:%.0lf,real:%.0lf\n", y, sample_y);
+                backprop(Predict_y, sample_y);  //GPU加速
                 cudaDeviceSynchronize();
-                for(int i=0;i<Predict_y.size();i++)
-                   cudaFree(Predict_y[i].data);
-                printf("back!\n");
+
+               // for(int i=0;i<Predict_y.size();i++)
+                 //  cudaFree(Predict_y[i].data);
                 for (int k = 0; k < W.size(); k++)
                 {
                     double lambda = eta;
                     W[k] = W[k] - lambda * Avg_W[k];
                     Bias[k] = Bias[k] - lambda * Avg_Bias[k];
                 }
-                printf("end\n");
+                cudaDeviceSynchronize();
+                
+                //printf("Bias1:");
+                //Bias[1].print();
+                //printf("梯度：");
+                //Avg_Bias[1].print();
+                //printf("减：");
+                //(eta * Avg_Bias[1]).print();
+                //return;
             }
+            //return;
+            cudaDeviceSynchronize();
+            //end_time = clock();
+            printf("The run time is:%lf seconds\n", (double)(end_time - start_time) / CLOCKS_PER_SEC);
             printf("Running batch number %d in epoch %d,acc:%.4lf\n", j, i, batch_acc / batch_size);
-            snprintf(buf, 60, "weights\\epoch_%d_batch_num_%d_acc_%.4lf.out", j, i, batch_acc / batch_size);
+            snprintf(buf, 60, "weights/epoch_%d_batch_num_%d_acc_%.4lf.out", j, i, batch_acc / batch_size);
             save_model(buf);
         }
         printf("Running feedforward on validation data for epoch %d\n", i);
@@ -110,7 +135,7 @@ void train() {
         printf("Accuracy on Validation Set for epoch %d is %lf\n", i, acc);
         if (acc > best_acc) {
             best_acc = acc;
-            snprintf(buf, 60, "weights\\acc_%.4lf.out", acc);
+            snprintf(buf, 60, "weights/acc_%.4lf.out", acc);
             save_model(buf);
         }
     }
@@ -121,7 +146,7 @@ int main()
     printf("Start initial!!!\n");
     for (int i = 0; i < layers.size() - 1; i++)
     {
-        //初始化参数矩阵和偏置矩阵
+        //初始化参数矩阵和偏置矩阵,初始化托管内存中
         //printf("i:%d\n", i);
         Matrix w(layers[i], layers[i + 1],NULL);
         Matrix b(1, layers[i + 1],NULL);
@@ -131,7 +156,7 @@ int main()
         W.push_back(w);
         Bias.push_back(b);
     }
-
+    //Bias[1].print();
     
 
     printf("Sucessful!!!\n");
@@ -145,11 +170,11 @@ int main()
     
 
     //shuffle
-    //load_model("weights\\epoch_11_batch_num_1_acc_0.9392.out");
+    load_model("weights/acc_0.8950.out");
 
     train();
-    cudaDeviceSynchronize();
-    double acc = test();
-    printf("final acc:%lf\n", acc);
+    //cudaDeviceSynchronize();
+    //double acc = test();
+    //printf("final acc:%lf\n", acc);
     return 0;
 }

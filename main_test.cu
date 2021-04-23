@@ -1,15 +1,21 @@
 #include<cstdio>
-#include<string>
-#include<fstream>
-
+#include"Matrix.cuh"
+#include"Matrix_cuda.cuh"
 using namespace std;
 
 
+
 int main(){
-   string s = "data/train-labels.idx1-ubyte";
-   ifstream file(s, ios::binary);
-   if(file.is_open())
-      printf("Succ!\n");
-    else printf("wrong!\n");
+   Matrix A(3,4,NULL);
+   Matrix B(1,4,NULL);
+
+   for(int i=0;i<3;i++)
+       for(int j=0;j<4;j++)
+          A.data[i*4+j] = i *4 +j;
+   
+   A.print();
+   A = A +A;
+   cudaDeviceSynchronize();
+   A.print();
    return 0;
 }

@@ -49,7 +49,7 @@ Matrix Matrix::dot(const Matrix &b){
     dim3 blocksize(getblocksize(shape0),getblocksize(b.shape1));
     dim3 gridsize((shape0+blocksize.x-1)/blocksize.x,(b.shape1+blocksize.y-1)/blocksize.y);
     matMulKernel<< <gridsize,blocksize>> >(this->data,b.data,An.data,shape0,shape1,b.shape1);
-    
+    //cudaDeviceSynchronize();
     return An;
 }
 
@@ -60,7 +60,7 @@ Matrix Matrix::transpose(){
     dim3 blocksize(getblocksize(shape1),getblocksize(shape0));
     dim3 gridsize((shape1+blocksize.x-1)/blocksize.x,(shape0+blocksize.y-1)/blocksize.y);
     matTransKernel<< <gridsize,blocksize>> >(this->data,An.data,shape1,shape0);
-    
+    //cudaDeviceSynchronize();
     return An;
 }
 
@@ -71,7 +71,7 @@ Matrix operator+(const Matrix &a, const Matrix &b){
     dim3 blocksize(getblocksize(a.shape0),getblocksize(a.shape1));
     dim3 gridsize((a.shape0+blocksize.x-1)/blocksize.x,(a.shape1+blocksize.y-1)/blocksize.y);
     matAddKernel<< <gridsize,blocksize>> >(a.data,b.data,An.data,a.shape0,a.shape1);
-
+    // cudaDeviceSynchronize();
     return An;
 }
 
@@ -82,7 +82,7 @@ Matrix operator-(const Matrix &a, const Matrix &b){
     dim3 blocksize(getblocksize(a.shape0),getblocksize(a.shape1));
     dim3 gridsize((a.shape0+blocksize.x-1)/blocksize.x,(a.shape1+blocksize.y-1)/blocksize.y);
     matSubKernel<< <gridsize,blocksize>> >(a.data,b.data,An.data,a.shape0,a.shape1);
-
+    // cudaDeviceSynchronize();
     return An;
 }
 
@@ -94,7 +94,7 @@ Matrix operator*(const Matrix &a, const Matrix &b){
     dim3 blocksize(getblocksize(a.shape0),getblocksize(a.shape1));
     dim3 gridsize((a.shape0+blocksize.x-1)/blocksize.x,(a.shape1+blocksize.y-1)/blocksize.y);
     matDotKernel<< <gridsize,blocksize>> >(a.data,b.data,An.data,a.shape0,a.shape1);
-
+    //cudaDeviceSynchronize();
     return An;
 }
 
@@ -105,7 +105,7 @@ Matrix operator*(double a, const Matrix& m2){
    dim3 blocksize(getblocksize(m2.shape0),getblocksize(m2.shape1));
    dim3 gridsize((m2.shape0+blocksize.x-1)/blocksize.x,(m2.shape1+blocksize.y-1)/blocksize.y);
    matTimesKernel<< <gridsize,blocksize>> >(a,m2.data,An.data,m2.shape0,m2.shape1);
-
+   //cudaDeviceSynchronize();
    return An;
 }
 
@@ -116,7 +116,7 @@ Matrix operator-(double a, const Matrix& m2){
     dim3 blocksize(getblocksize(m2.shape0),getblocksize(m2.shape1));
     dim3 gridsize((m2.shape0+blocksize.x-1)/blocksize.x,(m2.shape1+blocksize.y-1)/blocksize.y);
     matsubsKernel<< <gridsize,blocksize>> >(a,m2.data,An.data,m2.shape0,m2.shape1);
- 
+    // cudaDeviceSynchronize();
     return An;
  }
 
@@ -127,7 +127,7 @@ Matrix operator-(double a, const Matrix& m2){
     dim3 blocksize(getblocksize(m2.shape0),getblocksize(m2.shape1));
     dim3 gridsize((m2.shape0+blocksize.x-1)/blocksize.x,(m2.shape1+blocksize.y-1)/blocksize.y);
     matDivKernel<< <gridsize,blocksize>> >(a,m2.data,An.data,m2.shape0,m2.shape1);
- 
+    // cudaDeviceSynchronize();
     return An;
  }
 
@@ -190,7 +190,7 @@ void Matrix::print(){
     for(int i=0;i<shape0;i++)
     {
         for(int j=0;j<shape1;j++)
-           printf("%.2lf ",data[i*shape1+j]);
+           printf("%.3lf ",data[i*shape1+j]);
         printf("\n");
     }
 }

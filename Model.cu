@@ -26,17 +26,17 @@ void sigmoid(Matrix& a) {
     dim3 blocksize(getblocksize(a.shape0),getblocksize(a.shape1));
     dim3 gridsize((a.shape0+blocksize.x-1)/blocksize.x,(a.shape1+blocksize.y-1)/blocksize.y);
     matSigmoidKernel<< <gridsize,blocksize>> >(a.data,a.shape0,a.shape1);
+    cudaDeviceSynchronize();
 }
 
 void tanh(Matrix& a) {
     a = 2 * a;
     sigmoid(a);
-    a = -1 - (-2) * a; //2a-1
+    a = 1  - 2 * a; //2a-1
 }
 
 Matrix tanh_derivative(const Matrix& a) {
     return 1- a * a;
-
 }
 
 Matrix ReLu_derivative(Matrix& a)
@@ -58,6 +58,7 @@ void Softmax(Matrix& a)
     dim3 blocksize(getblocksize(a.shape0),getblocksize(a.shape1));
     dim3 gridsize((a.shape0+blocksize.x-1)/blocksize.x,(a.shape1+blocksize.y-1)/blocksize.y);
     matExpKernel<< <gridsize,blocksize>> >(a.data,a.shape0,a.shape1);
+    cudaDeviceSynchronize();
     for (int i = 0; i < a.shape0; i++)
     {
         //print(a);
@@ -67,6 +68,7 @@ void Softmax(Matrix& a)
         for (int j = 0; j < a.shape1; j++)
             a.data[i*a.shape1+j] /= sum_x;
     }
+    cudaDeviceSynchronize();
 }
 
 vector<Matrix> forward(Matrix& sample_x)
@@ -77,17 +79,22 @@ vector<Matrix> forward(Matrix& sample_x)
     H.push_back(sample_x);
     for (int i = 1; i < layer_count - 1; i++)
     { //H[1] = x W + B (1,512)
-        Matrix h = H[i - 1].dot(W[i - 1]) + Bias[i - 1];
+        Matrix h = H[i - 1].dot(W[i - 1]) + Bias[i - 1];  //GPU中
+        //cudaDeviceSynchronize();
+        //h.print();
         tanh(h);
+        //cudaDeviceSynchronize();
+        //h.print();
         H.push_back(h);
     }
     //现在是(1,512),然后softmax
     Matrix y_hat = H[layer_count - 2].dot(W[layer_count - 2]) + Bias[layer_count - 2];
-    //printf("before softmax: ");
-    //print(y_hat);
+    cudaDeviceSynchronize();
+    //printf("brfore:");
+    //y_hat.print();
     Softmax(y_hat);
-    //printf("after softmax: ");
-    //print(y_hat);
+    //printf("after:");
+    //y_hat.print();
     H.push_back(y_hat);
     return H;
 }
@@ -97,7 +104,7 @@ void backprop(vector<Matrix> H, double y)
 {
     //TODO:把每一层的梯度放在Avg里
     vector<Matrix> delta_error(H.size() - 1); //H.size = 3,y_hat,h1,x
-    Matrix Y(1, layers[layers.size() - 1]);  //Y.shape 1,10
+    Matrix Y(1, layers[layers.size() - 1],NULL);  //Y.shape 1,10
     Y.data[int(y)] = 1;
     int index = layer_count - 2; //1
     delta_error[index] = H[index + 1] - Y; //shape (1,10)
@@ -108,15 +115,18 @@ void backprop(vector<Matrix> H, double y)
     for (int i = index - 1; i >= 0; i--)
     {
         Matrix h_derivative = tanh_derivative(H[i + 1]); //(1,512)
-        delta_error[i] = delta_error[i + 1].dot(W[i + 1].transpose()) + h_derivative;
+        //cudaDeviceSynchronize();
+        //h_derivative.print();
+        delta_error[i] = delta_error[i + 1].dot(W[i + 1].transpose()) * h_derivative;
+        //cudaDeviceSynchronize();
+        //delta_error[i].print();
         Avg_Bias[i] = delta_error[i];
         Avg_W[i] = H[i].transpose().dot(delta_error[i]);
+        //cudaFree(h_derivative.data);
     }
     //释放内存
-    for(int i=0;i<delta_error.size();i++)
-    {
-        cudaFree(delta_error[i].data);
-    }
+    //for(int i=0;i<delta_error.size();i++)
+     //   cudaFree(delta_error[i].data);
 }
 
 void save_model(const char* filename) {

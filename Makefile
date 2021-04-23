@@ -6,3 +6,5 @@ main:c_BP.cu Model.cu load_data.cu Config.cu Matrix.cu Matrix_cuda.cu
 clean:
 	-rm -rf *.o
 	-rm -rf core
+
+# nvcc Matrix_cuda.cu Matrix.cu  main_test.cu  -o test
